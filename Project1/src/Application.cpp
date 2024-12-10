@@ -5,90 +5,11 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-
 #include "Renderer.h"
-
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
-
-
-
-
-struct ShaderProgramSource
-{
-	std::string VertexSource;
-	std::string FragmentSource;
-};
-
-static ShaderProgramSource ParseShader(const std::string file)
-{
-
-	enum class ShaderType
-	{
-		NONE = -1, VERTEX = 0, FRAGMENT = 1
-	};
-
-
-	std::ifstream stream(file);
-	std::string line;
-	std::stringstream ss[2];
-	ShaderType type = ShaderType::NONE;
-	while (getline(stream, line))
-	{
-		if (line.find("#shader") != std::string::npos)
-		{
-			if (line.find("vertex") != std::string::npos)
-				type = ShaderType::VERTEX;
-			else if (line.find("fragment") != std::string::npos)
-				type = ShaderType::FRAGMENT;
-		}
-		else
-		{
-			ss[(int)type] << line << '\n';
-		}
-	}
-
-	return { ss[0].str(), ss[1].str() };
-
-}
-
-static unsigned int CompileShader(unsigned int type, const std::string& source)
-{
-	unsigned int id = glCreateShader(type);
-	const char* src = source.c_str();
-	glShaderSource(id, 1, &src, nullptr);
-	glCompileShader(id);
-	int result;
-	glGetShaderiv(id, GL_COMPILE_STATUS, &result);
-	if (result == GL_FALSE)
-	{
-		int length;
-		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-		char* message = (char*)alloca(length * sizeof(char));
-		glGetShaderInfoLog(id, length, &length, message);
-		std::cout << "Failed to compile " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << " shader!" << std::endl;
-		std::cout << message << std::endl;
-		glDeleteShader(id);
-		return 0;
-	}
-	return id;
-}
-
-
-static int CreateShader(const std::string& vertexShader, const std::string& fragmentShader)
-{
-	unsigned int program = glCreateProgram();
-	unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
-	unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
-	glAttachShader(program, vs);
-	glAttachShader(program, fs);
-	glLinkProgram(program);
-	glValidateProgram(program);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
-	return program;
-}
-
+#include "VertexArray.h"
+#include "Shader.h"
 
 int main(void)
 {
@@ -132,53 +53,45 @@ int main(void)
 			2, 3, 0
 		};
 
-		unsigned int vao;
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-
-		VertexBuffer vb(positions, 8 * sizeof(float)); // contains the size of the positions array
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0); // links
-
-		IndexBuffer ib(indices, 6);
-
-		ShaderProgramSource source = ParseShader("res/shaders/Basic.shader");
-		unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
-		glUseProgram(shader);
-
-		GLCall(int location = glGetUniformLocation(shader, "u_Color"));
-		ASSERT(location != -1);
-		GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));
+		VertexArray va; // vertex array object
+		VertexBuffer vb(positions, 4 * 2 * sizeof(float)); // contains the size of the positions array
+		VertexBufferLayout layout; // layout of the vertex buffer
+		layout.Push<float>(2); // 2 floats for the position
+		va.AddBuffer(vb, layout); // adds the vertex buffer to the vertex array
 
 
-		//// before seperating class for vertex buffer and index buffer
-	 //   unsigned int buffer;
-	 //   glGenBuffers(1, &buffer);
-	 //   glBindBuffer(GL_ARRAY_BUFFER, buffer);
-		//glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), positions, GL_STATIC_DRAW); // refers to the size of the positions array
-		//glEnableVertexAttribArray(0);
-
-		//glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0); // links
-
-
-		//unsigned int ibo;
-		//glGenBuffers(1, &ibo);
-		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-		//glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned int), indices, GL_STATIC_DRAW);
 		
+		glEnableVertexAttribArray(0); // enables the vertex attribute array
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0); // links the vertex buffer to the vertex array
+
+		IndexBuffer ib(indices, 6); // does the same thing as the vertex buffer but for the index buffer
+
+
+
+
+		// shaders that are used to draw the triangle
 	
+		Shader shader("res/shaders/Basic.shader");
+		shader.Bind();
+		shader.SetUniform4f("u_Color", 0.8f, 0.3f, 0.8f, 1.0f);
 
-		
+		va.Unbind();
+		vb.Unbind();
+		ib.Unbind();
+		shader.Unbind();
 
 
-		//Unbounds everything
-		GLCall(glBindVertexArray(0));
-		GLCall(glUseProgram(0));\
-			GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+		//ShaderProgramSource source = ParseShader("res/shaders/Basic.shader");
+		//unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
+		//glUseProgram(shader);
+		////
 
+		// sets the color of the triangle in the shader with the name u_Color using the uniform location
+	/*	GLCall(int location = glGetUniformLocation(shader, "u_Color"));
+		ASSERT(location != -1);
+		GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));*/
 
+	
 
 
 		float r = 0.0f;
@@ -189,11 +102,12 @@ int main(void)
 			/* Render here */
 			glClear(GL_COLOR_BUFFER_BIT);
 
-			GLCall(glUseProgram(shader));
-			GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f));
+			shader.Bind();
+			shader.SetUniform4f("u_Color", r, 0.3f, 0.8f, 1.0f);
 
 
-			GLCall(glBindVertexArray(vao));
+			
+			va.Bind();
 			ib.Bind();
 
 
@@ -212,7 +126,6 @@ int main(void)
 			/* Poll for and process events */
 			glfwPollEvents();
 		}
-		GLCall(glDeleteProgram(shader));
 	}
     glfwTerminate();
     return 0;
