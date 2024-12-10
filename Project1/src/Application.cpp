@@ -10,6 +10,7 @@
 #include "IndexBuffer.h"
 #include "VertexArray.h"
 #include "Shader.h"
+#include "VertexBufferLayout.h"
 
 int main(void)
 {
@@ -80,18 +81,7 @@ int main(void)
 		ib.Unbind();
 		shader.Unbind();
 
-
-		//ShaderProgramSource source = ParseShader("res/shaders/Basic.shader");
-		//unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
-		//glUseProgram(shader);
-		////
-
-		// sets the color of the triangle in the shader with the name u_Color using the uniform location
-	/*	GLCall(int location = glGetUniformLocation(shader, "u_Color"));
-		ASSERT(location != -1);
-		GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));*/
-
-	
+		Renderer renderer;
 
 
 		float r = 0.0f;
@@ -100,19 +90,15 @@ int main(void)
 		while (!glfwWindowShouldClose(window))
 		{
 			/* Render here */
-			glClear(GL_COLOR_BUFFER_BIT);
-
+			renderer.Clear();
 			shader.Bind();
 			shader.SetUniform4f("u_Color", r, 0.3f, 0.8f, 1.0f);
 
-
-			
 			va.Bind();
 			ib.Bind();
 
-
-
-			GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+			renderer.Draw(va, ib, shader);
+			
 			if (r > 1.0f)
 				increment = -0.05f;
 			else if (r < 0.0f)
